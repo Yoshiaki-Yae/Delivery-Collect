@@ -65,35 +65,19 @@ target_town = st.radio(
     horizontal=True
 )
 
-# --- テンキー入力欄（HTML inputmode="numeric"） ---
+# --- スマホでテンキーが出る text_input（数字以外は自動削除） ---
 def numeric_input(label, key, max_len, placeholder=""):
-    html = f"""
-    <input 
-        type="text" 
-        id="{key}" 
-        maxlength="{max_len}" 
-        inputmode="numeric" 
-        pattern="[0-9]*"
-        placeholder="{placeholder}"
-        style="
-            width: 100%;
-            padding: 0.6em;
-            font-size: 1.2em;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-        "
-        oninput="this.value=this.value.replace(/[^0-9]/g,'');"
-    >
-    <script>
-        const el = document.getElementById("{key}");
-        el.addEventListener("input", () => {{
-            window.parent.postMessage({{isStreamlitMessage: true, type: "streamlit:setComponentValue", key: "{key}", value: el.value}}, "*");
-        }});
-    </script>
-    """
-    st.markdown(f"**{label}**", unsafe_allow_html=True)
-    st.markdown(html, unsafe_allow_html=True)
-    return st.session_state.get(key, "")
+    value = st.text_input(
+        label,
+        placeholder=placeholder,
+        max_chars=max_len,
+        key=key
+    )
+    # 数字以外を削除
+    if value:
+        value = "".join(filter(str.isdigit, value))
+        st.session_state[key] = value
+    return value
 
 # --- 番地・枝番・号 ---
 col1, col2, col3 = st.columns([1, 1, 1])
