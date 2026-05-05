@@ -65,32 +65,47 @@ target_town = st.radio(
     horizontal=True
 )
 
-# --- 番地・枝番・号の入力欄（テンキー + 桁数制限） ---
+# --- テンキー入力欄（HTML inputmode="numeric"） ---
+def numeric_input(label, key, max_len, placeholder=""):
+    html = f"""
+    <input 
+        type="text" 
+        id="{key}" 
+        maxlength="{max_len}" 
+        inputmode="numeric" 
+        pattern="[0-9]*"
+        placeholder="{placeholder}"
+        style="
+            width: 100%;
+            padding: 0.6em;
+            font-size: 1.2em;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        "
+        oninput="this.value=this.value.replace(/[^0-9]/g,'');"
+    >
+    <script>
+        const el = document.getElementById("{key}");
+        el.addEventListener("input", () => {{
+            window.parent.postMessage({{isStreamlitMessage: true, type: "streamlit:setComponentValue", key: "{key}", value: el.value}}, "*");
+        }});
+    </script>
+    """
+    st.markdown(f"**{label}**", unsafe_allow_html=True)
+    st.markdown(html, unsafe_allow_html=True)
+    return st.session_state.get(key, "")
+
+# --- 番地・枝番・号 ---
 col1, col2, col3 = st.columns([1, 1, 1])
 
 with col1:
-    banchi = st.text_input(
-        "番地（最大5桁）",
-        placeholder="4803",
-        input_type="number",
-        max_chars=5
-    )
+    banchi = numeric_input("番地（最大5桁）", "banchi", 5, "4803")
 
 with col2:
-    edaban = st.text_input(
-        "枝番（最大4桁）",
-        placeholder="8",
-        input_type="number",
-        max_chars=4
-    )
+    edaban = numeric_input("枝番（最大4桁）", "edaban", 4, "8")
 
 with col3:
-    go = st.text_input(
-        "号（最大4桁）",
-        placeholder="1",
-        input_type="number",
-        max_chars=4
-    )
+    go = numeric_input("号（最大4桁）", "go", 4, "1")
 
 # --- GPS情報の取得 ---
 st.subheader("其の二：位置を確かめる")
