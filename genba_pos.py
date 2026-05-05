@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import hashlib
 from datetime import datetime
 from streamlit_js_eval import get_geolocation
 
@@ -25,13 +26,32 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- CSV ファイルの準備 ---
-CSV_PATH = "data.csv"
+# --- 改ざん防止ハッシュ生成 ---
+def make_hash(row):
+    text = f"{row['日時']}{row['住所']}{row['緯度']}{row['経度']}"
+    return hashlib.sha256(text.encode()).hexdigest()
+
+# --- CSV ファイルの準備（.streamlit 内に保存） ---
+CSV_PATH = ".streamlit/data.csv"
 
 if os.path.exists(CSV_PATH):
     df_history = pd.read_csv(CSV_PATH)
 else:
-    df_history = pd.DataFrame(columns=["日時", "住所", "緯度", "経度"])
+    df_history = pd.DataFrame(columns=["日時", "住所", "緯度", "経度", "署名"])
+
+# --- 改ざんチェック ---
+if len(df_history) > 0:
+    tampered = False
+    for _, row in df_history.iterrows():
+        expected = make_hash(row)
+        if row["署名"] != expected:
+            tampered = True
+            break
+
+    if tampered:
+        st.error("⚠️ データが改ざんされています。正しい記録ではありません。")
+    else:
+        st.success("🔒 データは正しく保護されています。")
 
 st.title("📍 現場・位置しるべ")
 st.caption("〜 地図の嘘を正し、正解を刻む 〜")
@@ -39,14 +59,12 @@ st.caption("〜 地図の嘘を正し、正解を刻む 〜")
 # --- 入力部 ---
 st.subheader("其の一：処（ところ）を選ぶ")
 
-# 町名選択
 target_town = st.radio(
     "町名", 
     ["南今津", "高西町3丁目", "高西町2丁目", "高須町"], 
     horizontal=True
 )
 
-# 番地入力
 col1, col2 = st.columns(2)
 with col1:
     search_base = st.text_input("番地（例：4803）", placeholder="4803")
@@ -70,29 +88,28 @@ else:
 st.divider()
 
 if search_base:
-    # 登録済みか確認（住所の重複チェック）
     is_registered = full_address in df_history['住所'].values
     
     if is_registered:
-        st.warning(f"「{full_address}」は既に書き記されています。上書きとなります。")
+        st.warning(f"「{full_address}」は既に書き記されています。上書きはできません（追記のみ）。")
     else:
         st.success(f"「{full_address}」は新しき処です。")
 
-    # 登録ボタン
     if st.button("✅ 座標（しるべ）を書き記す", use_container_width=True):
         if location:
             now = datetime.now().strftime("%Y-%m-%d %H:%M")
-            new_data = pd.DataFrame([{
+
+            new_row = {
                 "日時": now,
                 "住所": full_address,
                 "緯度": lat,
                 "経度": lon
-            }])
-            
-            # 既存データと結合し、同じ住所は最新で上書き
-            updated_df = pd.concat([df_history, new_data]).drop_duplicates(subset=["住所"], keep="last")
+            }
+            new_row["署名"] = make_hash(new_row)
 
-            # CSV に保存
+            # 追記のみ（過去データは絶対に変更しない）
+            updated_df = pd.concat([df_history, pd.DataFrame([new_row])], ignore_index=True)
+
             updated_df.to_csv(CSV_PATH, index=False)
 
             st.balloons()
