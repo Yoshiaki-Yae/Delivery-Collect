@@ -44,7 +44,7 @@ target_town = st.radio(
     horizontal=True
 )
 
-# --- 内蔵テンキー付き入力欄 ---
+# --- 横3列固定テンキー ---
 def keypad_input(label, key, max_len):
     st.markdown(f"### {label}")
 
@@ -52,21 +52,32 @@ def keypad_input(label, key, max_len):
         st.session_state[key] = ""
 
     # 表示欄（編集不可）
-    st.text_input(label, st.session_state[key], key=f"{key}_display", disabled=True)
+    st.text_input("", st.session_state[key], key=f"{key}_display", disabled=True)
 
-    # テンキー
+    # CSS：スマホでも横3列を維持
+    st.markdown("""
+        <style>
+        .stButton>button {
+            height: 60px !important;
+            font-size: 1.4em !important;
+            font-weight: bold !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # テンキーの配置
     keys = [
         ["1", "2", "3"],
         ["4", "5", "6"],
         ["7", "8", "9"],
-        ["←", "0", "クリア"]
+        ["←", "0", "C"]
     ]
 
     for row in keys:
         cols = st.columns(3)
         for i, k in enumerate(row):
-            if cols[i].button(k, key=f"{key}_{k}"):
-                if k == "クリア":
+            if cols[i].button(k, key=f"{key}_{k}", use_container_width=True):
+                if k == "C":
                     st.session_state[key] = ""
                 elif k == "←":
                     st.session_state[key] = st.session_state[key][:-1]
@@ -82,13 +93,13 @@ def keypad_input(label, key, max_len):
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    banchi = keypad_input("番地（最大5桁）", "banchi", 5)
+    banchi = keypad_input("番地", "banchi", 5)
 
 with col2:
-    edaban = keypad_input("枝番（最大4桁）", "edaban", 4)
+    edaban = keypad_input("枝番", "edaban", 4)
 
 with col3:
-    go = keypad_input("号（最大4桁）", "go", 4)
+    go = keypad_input("号", "go", 4)
 
 # --- GPS ---
 st.subheader("其の二：位置を確かめる")
