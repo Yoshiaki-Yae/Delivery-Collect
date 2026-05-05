@@ -28,7 +28,7 @@ st.markdown("""
 
 # --- 改ざん防止ハッシュ生成 ---
 def make_hash(row):
-    text = f"{row['日時']}{row['住所']}{row['緯度']}{row['経度']}"
+    text = f"{row['日時']}{row['番地']}{row['枝番']}{row['号']}{row['緯度']}{row['経度']}"
     return hashlib.sha256(text.encode()).hexdigest()
 
 # --- CSV ファイルの準備（.streamlit 内に保存） ---
@@ -37,7 +37,7 @@ CSV_PATH = ".streamlit/data.csv"
 if os.path.exists(CSV_PATH):
     df_history = pd.read_csv(CSV_PATH)
 else:
-    df_history = pd.DataFrame(columns=["日時", "住所", "緯度", "経度", "署名"])
+    df_history = pd.DataFrame(columns=["日時", "番地", "枝番", "号", "緯度", "経度", "署名"])
 
 # --- 改ざんチェック ---
 if len(df_history) > 0:
@@ -65,13 +65,32 @@ target_town = st.radio(
     horizontal=True
 )
 
-col1, col2 = st.columns(2)
-with col1:
-    search_base = st.text_input("番地（例：4803）", placeholder="4803")
-with col2:
-    address_suffix = st.text_input("枝番（例：-8）", placeholder="-8")
+# --- 番地・枝番・号の入力欄（テンキー + 桁数制限） ---
+col1, col2, col3 = st.columns([1, 1, 1])
 
-full_address = f"福山市{target_town}{search_base}{address_suffix}"
+with col1:
+    banchi = st.text_input(
+        "番地（最大5桁）",
+        placeholder="4803",
+        input_type="number",
+        max_chars=5
+    )
+
+with col2:
+    edaban = st.text_input(
+        "枝番（最大4桁）",
+        placeholder="8",
+        input_type="number",
+        max_chars=4
+    )
+
+with col3:
+    go = st.text_input(
+        "号（最大4桁）",
+        placeholder="1",
+        input_type="number",
+        max_chars=4
+    )
 
 # --- GPS情報の取得 ---
 st.subheader("其の二：位置を確かめる")
@@ -87,13 +106,18 @@ else:
 # --- 登録処理 ---
 st.divider()
 
-if search_base:
-    is_registered = full_address in df_history['住所'].values
+if banchi:
+    # 番地＋枝番＋号の組み合わせで重複チェック
+    is_registered = (
+        (df_history["番地"] == banchi) &
+        (df_history["枝番"] == edaban) &
+        (df_history["号"] == go)
+    ).any()
     
     if is_registered:
-        st.warning(f"「{full_address}」は既に書き記されています。上書きはできません（追記のみ）。")
+        st.warning("この住所は既に記録されています（追記のみのため上書き不可）。")
     else:
-        st.success(f"「{full_address}」は新しき処です。")
+        st.success("新しい住所です。記録できます。")
 
     if st.button("✅ 座標（しるべ）を書き記す", use_container_width=True):
         if location:
@@ -101,15 +125,15 @@ if search_base:
 
             new_row = {
                 "日時": now,
-                "住所": full_address,
+                "番地": banchi,
+                "枝番": edaban,
+                "号": go,
                 "緯度": lat,
                 "経度": lon
             }
             new_row["署名"] = make_hash(new_row)
 
-            # 追記のみ（過去データは絶対に変更しない）
             updated_df = pd.concat([df_history, pd.DataFrame([new_row])], ignore_index=True)
-
             updated_df.to_csv(CSV_PATH, index=False)
 
             st.balloons()
